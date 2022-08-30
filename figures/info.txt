@@ -1,0 +1,1 @@
+Images that will appear in the repository pages will be located in this folder
