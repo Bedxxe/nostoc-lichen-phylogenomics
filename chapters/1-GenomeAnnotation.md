@@ -7,7 +7,7 @@ title: "Data annotation"
 
 # Data annotation 
 
-## Installation of the needed environment in the cluste (Duke University)
+## Installation of the needed environment in the cluster (Duke University)
 
 I have already installed `Conda` with the `miniconda` version inside the cluster in the next directory:
 
