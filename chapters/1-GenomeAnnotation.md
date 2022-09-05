@@ -231,5 +231,94 @@ NMS2  P10246  P1229   P12567  P12641  P14321  P2152  P330   P6620  P8570  P8926 
 
 We have completed the first step wich is annotation.
 
+## Results
+
+After inspecting the results from the script submitted to the cluster, I was aware that there are three 
+bins that do not have an `Antismash` output:
+
+* NMS5
+* P12639
+* P6970
+
+I try to re-annotate them using the next little script:
+
+~~~
+#!/bin/bash
+
+#SBATCH --mem-per-cpu=16G #The RAM memory that will be asssigned to each threads
+#SBATCH -c 16 #The number of threads to be used in this script
+#SBATCH --output=nostoc-gAnot/logs/some-nostoc.out #A file with the output information will be generated in the location indicated
+#SBATCH --error=nostoc-gAnot/logs/some-nostoc.err #If a error occurs, a file will be created in the location indicated
+#SBATCH --partition=common
+
+source /hpc/group/bio1/diego/miniconda3/etc/profile.d/conda.sh
+conda activate gmining
+
+for i in NMS5 P12639 P6970; 
+
+do antismash --asf --pfam2go nostoc-gAnot/prokka/$i/*.gbk -c 16 --output-dir nostoc-gAnot/antismash/$i --output-basename $i --html-title report-$i --html-start-compact
+~~~
+{: .language-bash}
+
+
+In the end, I obtained the same result. I figured out that I commited a mistake there are two bins with the name `P12639`. 
+Because how I did the script to submit them to the cluster `Prokka` put only one output in the `P12639` folder. Using the 
+next script I repeated the process for these two bins:
+
+~~~
+#!/bin/bash
+
+#SBATCH --mem-per-cpu=16G #The RAM memory that will be asssigned to each threads
+#SBATCH -c 16 #The number of threads to be used in this script
+#SBATCH --output=nostoc-gAnot/logs/some-nostoc.out #A file with the output information will be generated in the location indicated
+#SBATCH --error=nostoc-gAnot/logs/some-nostoc.err #If a error occurs, a file will be created in the location indicated
+#SBATCH --partition=common
+
+source /hpc/group/bio1/diego/miniconda3/etc/profile.d/conda.sh
+conda activate gmining
+
+ls carlos-bins/P12639* | while read line; do file=$(echo $line | cut -d'/' -f2| cut -d'.' -f1);
+prokka --prefix $file --outdir nostoc-gAnot/prokka/$file --kingdom Bacteria --genus Nostoc \
+--strain $file --usegenus --addgenes --metagenome --compliant --cpus 16 \
+carlos-bins/$file*; 
+antismash --asf --pfam2go nostoc-gAnot/prokka/$file/*.gbk -c 16 --output-dir nostoc-gAnot/antismash/$file --output-basename $file --html-title report-$file --html-start-compact;
+done
+~~~
+{: .language-bash}
+
+This indeed generated two different outputs. Nevertheless, both files do not generated any outputs with `Antismash`. 
+I want to see the status of these bins, I used `info-pbins.sh` little programm to extract some important information of 
+these bins:
+
+~~~
+#!/bin/bash
+
+echo -e Bin'\t'Completeness'\t'Contamination'\t'#Bins > problematic-bins.txt
+
+for i in NMS5 P12639_bin.2 P12639_bin.3 P6970; 
+do comp=$(cat metadata/fullqc_set8.csv | grep $i | cut -d',' -f14);
+cont=$(cat metadata/fullqc_set8.csv | grep $i | cut -d',' -f15)
+assm=$(cat metadata/fullqc_set8.csv | grep $i | cut -d',' -f19)
+echo -e $i'\t'$comp'\t'$cont'\t'$assm >> problematic-bins.txt; done
+~~~
+{: .language-bash}
+
+~~~
+$ sh info-pbins.sh
+$ cat problematic-bins.txt
+~~~
+{: .language-bash}
+
+~~~
+Bin     Completeness    Contamination   #Bins
+NMS5    54.41   1.19    1170
+P12639_bin.2    84.48   32.99   2883
+P12639_bin.3    30.52   12.93   922
+P6970   91.12   0.96    1463
+~~~
+{: .output}
+
+As can be seen in the results, each of these bins have to much contings to be processed by `Antismash` (> 500). So I will let 
+them out of the future analyses until we can obtain better assemblies.
 
 <img src="/nostoc-lichen-phylogenomics/figures/00-02-branchWithThreeLichens.png">
